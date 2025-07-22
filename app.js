@@ -40,10 +40,16 @@ mongoose.connect('mongodb+srv://gauravyadav9182:B9c28B2m5tMIUjDr@chat-room.tewqj
   .catch((err) => console.log('❌ MongoDB Error:', err));
 
 // ✅ Now this comes AFTER the connection
+const env_type = process.env.ENV_TYPE;
+const frontend_url = env_type === 'PROD'
+  ? process.env.FRONTEND_URL_DEPLOYED
+  : process.env.FRONTEND_URL_LOCALHOST;
+
+
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: 'http://localhost:5173',
+    origin: frontend_url,
     methods: ['GET', 'POST'],
   },
 });

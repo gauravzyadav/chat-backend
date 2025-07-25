@@ -22,7 +22,7 @@ app.use(cors());
 app.use(express.json());
 
 // ✅ MongoDB Connection
-mongoose.connect('mongodb+srv://gauravyadav9182:B9c28B2m5tMIUjDr@chat-room.tewqjwn.mongodb.net/?retryWrites=true&w=majority&appName=chat-room')
+mongoose.connect(process.env.MONGO_URI)
   .then(async () => {
     console.log('✅ MongoDB Connected');
 

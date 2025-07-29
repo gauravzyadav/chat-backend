@@ -4,16 +4,12 @@
 
 require('dotenv').config(); // 🔐 Load .env variables first
 const askGemini = require('./utils/gemini');
-
-
-
 const express = require('express');
 const http = require('http');
 const cors = require('cors');
 const mongoose = require('mongoose');
 const { Server } = require('socket.io');
 const { verifyToken } = require('@clerk/backend');
-
 const Message = require('./models/Message');
 const Room = require('./models/Room');
 
@@ -25,7 +21,6 @@ app.use(express.json());
 mongoose.connect(process.env.MONGO_URI)
   .then(async () => {
     console.log('✅ MongoDB Connected');
-
     // ✅ Ensure AI room exists
     const existingAI = await Room.findOne({ code: 'ai-assistant' });
     if (!existingAI) {
@@ -45,7 +40,6 @@ const frontend_url = env_type === 'PROD'
   ? process.env.FRONTEND_URL_DEPLOYED
   : process.env.FRONTEND_URL_LOCALHOST;
 
-
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
@@ -53,7 +47,6 @@ const io = new Server(server, {
     methods: ['GET', 'POST'],
   },
 });
-
 
 const roomUsers = {}; // { roomCode: [ { id: socket.id, name: username } ] }
 
@@ -64,7 +57,6 @@ io.use(async (socket, next) => {
     const payload = await verifyToken(token, {
       secretKey: process.env.CLERK_SECRET_KEY, // 👈 Use secret key from .env
     });
-
     socket.username = payload.name;
     socket.email = payload.email;
     next();
@@ -117,7 +109,6 @@ io.on('connection', (socket) => {
   });
 
   socket.on('send_message', async ({ message, room }) => {
-    
     if (room === 'ai-assistant') {
       const time = new Date().toLocaleTimeString();
       const userMessage = {
@@ -126,9 +117,8 @@ io.on('connection', (socket) => {
         message,
         time
       };
-    
       io.to(room).emit('receive_message', userMessage);
-    
+
       const aiReply = await askGemini(message);
       const aiMessage = {
         room,
@@ -136,15 +126,24 @@ io.on('connection', (socket) => {
         message: aiReply,
         time: new Date().toLocaleTimeString()
       };
-    
       io.to(room).emit('receive_message', aiMessage);
     } else {
       const time = new Date().toLocaleTimeString();
-    const msg = new Message({ room, username: socket.username, message, time });
-    await msg.save();
-    io.to(room).emit('receive_message', { room, username: socket.username, message, time });
+      const msg = new Message({ room, username: socket.username, message, time });
+      await msg.save();
+      io.to(room).emit('receive_message', { room, username: socket.username, message, time });
     }
-    
+  });
+
+  // ✅ NEW: Typing indicators
+  socket.on('typing', ({ room, username }) => {
+    console.log(`👤 ${username} is typing in room ${room}`);
+    socket.to(room).emit('user_typing', { username });
+  });
+
+  socket.on('stop_typing', ({ room, username }) => {
+    console.log(`👤 ${username} stopped typing in room ${room}`);
+    socket.to(room).emit('user_stopped_typing', { username });
   });
 
   socket.on('delete_room', async (roomCode) => {
